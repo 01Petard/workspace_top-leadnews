@@ -2,5 +2,5 @@ minio:
   rootUser: minio
   rootPassword: 12345678
   bucket: leadnews
-  endpoint: http://192.168.113.132:9100
-  readPath: http://192.168.113.132:9100
+  endpoint: http://192.168.179.129:9100
+  readPath: http://192.168.179.129:9100
