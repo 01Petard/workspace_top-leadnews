@@ -84,7 +84,7 @@ public class MinIOTest {
     @Test
     public void testDownload() throws IOException {
 //        String pathUrl = "http://192.168.113.132:9100/leadnews/2023/11/23/02-list.html";
-        String pathUrl = "http://192.168.113.132:9100/leadnews/2023/12/07/tou.png";
+        String pathUrl = "http://192.168.179.129:9100/leadnews/2023/12/07/tou.png";
         byte[] bytes = fileStorageService.downLoadFile(pathUrl);
         System.out.println(new String(bytes));
     }
