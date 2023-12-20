@@ -1,6 +1,7 @@
 package com.heima.wemedia.service.impl;
 
 import com.alibaba.fastjson.JSONArray;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.heima.apis.article.IArticleClient;
 import com.heima.common.aliyun.GreenScan_HZX;
 import com.heima.common.aliyun.GreenTextScan_heima;
@@ -10,9 +11,12 @@ import com.heima.model.article.dtos.ArticleDto;
 import com.heima.model.common.dtos.ResponseResult;
 import com.heima.model.wemedia.pojos.WmChannel;
 import com.heima.model.wemedia.pojos.WmNews;
+import com.heima.model.wemedia.pojos.WmSensitive;
 import com.heima.model.wemedia.pojos.WmUser;
+import com.heima.utils.common.SensitiveWordUtil;
 import com.heima.wemedia.mapper.WmChannelMapper;
 import com.heima.wemedia.mapper.WmNewsMapper;
+import com.heima.wemedia.mapper.WmSensitiveMapper;
 import com.heima.wemedia.mapper.WmUserMapper;
 import com.heima.wemedia.service.WmNewsAutoScanService;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +40,7 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
     @Autowired
     private WmNewsMapper wmNewsMapper;
 
+
     @Override
     @Async  //异步审核
     public void autoScanWmNews(Integer id) {
@@ -52,16 +57,36 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
             throw new RuntimeException("WmNewsAutoScanServiceImpl-文章不存在");
         }
         if (wmNews.getStatus().equals(WmNews.Status.SUBMIT.getCode())) {
-            //从内容中提取纯文本内容和图片
+            //1.从内容中提取纯文本内容和图片
             Map<String, Object> textAndImages = handleTextAndImages(wmNews);
+
+            //自管理的敏感词过滤
+            boolean isSensitive = handleSensitiveScan(textAndImages.get("content").toString(), wmNews);
+            if (!isSensitive) {
+                return;
+            } else {
+                log.info("文章内容存在敏感词，审核不通过，用户id：{}", wmNews.getUserId());
+            }
+
 
             //2.调用阿里云接口审核文章内容
             boolean isTextScan = handleTextScan(textAndImages.get("content").toString(), wmNews);
-            if (!isTextScan) return;
+            if (!isTextScan) {
+                return;
+            } else {
+                log.info("文章内容存在违规内容，审核不通过，用户id：{}", wmNews.getUserId());
+            }
+
 
             //3.调用阿里云接口审核文章图片
             boolean isImagesScan = handleImagesScan((List<String>) textAndImages.get("images"), wmNews);
-            if (!isImagesScan) return;
+            if (!isImagesScan) {
+                return;
+            } else {
+                log.info("文章图片存在违规内容，审核不通过，用户id：{}", wmNews.getUserId());
+            }
+
+
             //4.审核成功，保存app端文章数据
             ResponseResult responseResult = saveAppApArticle(wmNews);
             if (!responseResult.getCode().equals(200)) {
@@ -71,6 +96,43 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
             wmNews.setArticleId((Long) responseResult.getData());
             updateWmNews(wmNews, (short) 9, "审核成功，文章发布！");
         }
+    }
+
+
+    @Autowired
+    private WmSensitiveMapper wmSensitiveMapper;
+
+    /**
+     * 自管理的敏感词审核
+     *
+     * @param content
+     * @param wmNews
+     * @return
+     */
+    private boolean handleSensitiveScan(String content, WmNews wmNews) {
+
+        boolean flag = true;
+
+        //获取所有的敏感词类对象
+        List<WmSensitive> wmSensitives = wmSensitiveMapper.selectList(Wrappers.<WmSensitive>lambdaQuery().select(WmSensitive::getSensitives));
+
+        //获取所有的敏感词类对象中的敏感词字符
+        List<String> sensitiveList = wmSensitives
+                .stream()
+                .map(WmSensitive::getSensitives)
+                .collect(Collectors.toList());
+
+        //初始化敏感词库
+        SensitiveWordUtil.initMap(sensitiveList);
+
+        //查看文章中是否包含敏感词
+        Map<String, Integer> map = SensitiveWordUtil.matchWords(content + wmNews.getTitle());
+        if (!map.isEmpty()) {
+            updateWmNews(wmNews, (short) 2, "当前文章中存在违规内容" + map);
+            flag = false;
+        }
+
+        return flag;
     }
 
     @Autowired
@@ -197,7 +259,7 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
             }
         } catch (Exception e) {
             flag = false;
-            e.printStackTrace();
+            log.error(e.toString());
         }
         return flag;
     }
