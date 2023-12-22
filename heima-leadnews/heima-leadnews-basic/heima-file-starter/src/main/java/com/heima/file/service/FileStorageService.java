@@ -16,7 +16,7 @@ public interface FileStorageService {
      * @param inputStream 文件流
      * @return 文件全路径
      */
-    String uploadFile(String prefix, String filename, InputStream inputStream) throws IOException;
+    String uploadFile(String prefix, String filename, InputStream inputStream);
 
     /**
      * 删除文件

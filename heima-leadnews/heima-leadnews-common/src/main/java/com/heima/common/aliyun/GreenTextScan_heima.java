@@ -28,7 +28,7 @@ public class GreenTextScan_heima {
     private String accessKeyId;
     private String secret;
 
-    public Map greeTextScan(String content) throws Exception {
+    public Map<String, String> greeTextScan(String content) throws Exception {
         Config config = new Config();
         config.setAccessKeyId(accessKeyId);
         config.setAccessKeySecret(secret);

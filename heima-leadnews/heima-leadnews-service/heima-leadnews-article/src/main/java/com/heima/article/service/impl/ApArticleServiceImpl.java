@@ -6,6 +6,7 @@ import com.heima.article.mapper.ApArticleConfigMapper;
 import com.heima.article.mapper.ApArticleContentMapper;
 import com.heima.article.mapper.ApArticleMapper;
 import com.heima.article.service.ApArticleService;
+import com.heima.article.service.ArticleFreemarkerService;
 import com.heima.common.constants.ArticleConstants;
 import com.heima.model.article.dtos.ArticleDto;
 import com.heima.model.article.dtos.ArticleHomeDto;
@@ -23,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import springfox.documentation.annotations.ApiIgnore;
 
+import java.io.IOException;
 import java.sql.Wrapper;
 import java.util.Date;
 import java.util.List;
@@ -85,6 +87,8 @@ public class ApArticleServiceImpl extends ServiceImpl<ApArticleMapper, ApArticle
     private ApArticleConfigMapper apArticleConfigMapper;
     @Autowired
     private ApArticleContentMapper apArticleContentMapper;
+    @Autowired
+    private ArticleFreemarkerService articleFreemarkerService;
 
     @Override
     public ResponseResult saveArticle(ArticleDto dto) {
@@ -131,6 +135,14 @@ public class ApArticleServiceImpl extends ServiceImpl<ApArticleMapper, ApArticle
             ApArticleContent apArticleContent = apArticleContentMapper.selectOne(Wrappers.<ApArticleContent>lambdaQuery().eq(ApArticleContent::getArticleId, dto.getId()));
             apArticleContent.setContent(dto.getContent());
             apArticleContentMapper.updateById(apArticleContent);
+        }
+
+
+        //异步调用，生成静态文件上传到minion中
+        try {
+            articleFreemarkerService.buildArticleToMinIO(apArticle, dto.getContent());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
 
         //3. 结果返回文章id

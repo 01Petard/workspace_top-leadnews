@@ -81,7 +81,7 @@ public class AliyunImageTest {
         urls.add(url3);
         urls.add(url4);
 
-        List<Map> maps = greenScanHzx.imgAutoScan(urls);
+        List<Map<String,String>> maps = greenScanHzx.imgAutoScan(urls);
         System.out.println(maps);
     }
 

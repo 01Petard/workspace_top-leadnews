@@ -110,12 +110,12 @@ public class GreenScan_HZX {
      * @param imgUrls
      * @return
      */
-    public List<Map> imgAutoScan(List<String> imgUrls) throws IOException {
+    public List<Map<String,String>> imgAutoScan(List<String> imgUrls) throws IOException {
         Config config = getConfig(accessKeyId, secret, regionId, endpoint);
         Client client = getClient(config);
         RuntimeOptions runtime = getRuntimeOptions(readTimeout, connectTimeout);
 
-        List<Map> resultMaps = new ArrayList<>();
+        List<Map<String,String>> resultMaps = new ArrayList<>();
         //将图片上传到阿里云OSS
         List<String> urls = ossUtil.autoUpload(imgUrls);
 

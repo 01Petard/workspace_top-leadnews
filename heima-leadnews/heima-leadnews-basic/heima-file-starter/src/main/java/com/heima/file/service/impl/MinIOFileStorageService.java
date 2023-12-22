@@ -128,7 +128,7 @@ public class MinIOFileStorageService implements FileStorageService {
      * @return 文件全路径
      */
     @Override
-    public String uploadFile(String prefix, String filename, InputStream inputStream) throws IOException {
+    public String uploadFile(String prefix, String filename, InputStream inputStream){
         String filePath = builderFilePath(prefix, filename);
         String fileType = getFileType(filename);
         try {
@@ -144,8 +144,6 @@ public class MinIOFileStorageService implements FileStorageService {
         } catch (Exception ex) {
             log.error("minio put file error.", ex);
             throw new RuntimeException("上传文件失败");
-        } finally {
-            inputStream.close();
         }
     }
 

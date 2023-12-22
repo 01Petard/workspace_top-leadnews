@@ -5,4 +5,5 @@ org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
   com.heima.common.aliyun.GreenTextScan_heima, \
   com.heima.common.aliyun.GreenScan_TestDemo, \
   com.heima.common.aliyun.GreenScan_HZX, \
-  com.heima.common.aliyun.OssUtil
+  com.heima.common.aliyun.OssUtil, \
+  com.heima.common.tess4j.Tess4jClient
