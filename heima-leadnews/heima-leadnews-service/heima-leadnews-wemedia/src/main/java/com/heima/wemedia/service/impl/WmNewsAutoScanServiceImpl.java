@@ -111,8 +111,8 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
      * @return
      */
     private boolean handleSensitiveScan(String content, WmNews wmNews) {
-
-        boolean flag = true;
+        //false: 没有敏感词，true: 有敏感词
+        boolean flag = false;
 
         //获取所有的敏感词类对象
         List<WmSensitive> wmSensitives = wmSensitiveMapper.selectList(Wrappers.<WmSensitive>lambdaQuery().select(WmSensitive::getSensitives));
@@ -130,7 +130,7 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
         Map<String, Integer> map = SensitiveWordUtil.matchWords(content + wmNews.getTitle());
         if (!map.isEmpty()) {
             updateWmNews(wmNews, (short) 2, "当前文章中存在违规内容" + map);
-            flag = false;
+            flag = true;
         }
 
         return flag;

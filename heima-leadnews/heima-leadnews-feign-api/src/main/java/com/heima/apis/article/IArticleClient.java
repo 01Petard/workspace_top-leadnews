@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 
-@FeignClient(value = "leadnews-article",fallback = IArticleClientFallback.class)
+@FeignClient(value = "leadnews-article", fallback = IArticleClientFallback.class)
 public interface IArticleClient {
 
 
