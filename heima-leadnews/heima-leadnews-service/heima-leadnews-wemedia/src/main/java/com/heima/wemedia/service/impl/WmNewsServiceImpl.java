@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.heima.common.constants.WemediaConstants;
+import com.heima.common.constants.WmNewsMessageConstants;
 import com.heima.common.exception.CustomException;
 import com.heima.model.common.dtos.PageResponseResult;
 import com.heima.model.common.dtos.ResponseResult;
@@ -28,13 +29,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -44,6 +43,7 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
 
     /**
      * 查询文章
+     *
      * @param dto
      * @return
      */
@@ -118,6 +118,7 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
 
     /**
      * 发布修改文章或保存为草稿
+     *
      * @param dto
      * @return
      */
@@ -169,9 +170,9 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
     }
 
 
-
     /**
      * 处理文章内容图片与素材的关系
+     *
      * @param materials 文章中的图片url集合
      * @param newsId    文章id
      */
@@ -187,6 +188,7 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
      * 3、如果内容没有图片，无图  type 0
      * <p>
      * 第二个功能：保存封面图片与素材的关系
+     *
      * @param dto
      * @param wmNews
      * @param materials 文章中的图片url集合
@@ -233,6 +235,7 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
 
     /**
      * 保存文章图片与素材的关系到数据库中
+     *
      * @param materials 文章中的图片url集合
      * @param newsId    文章id
      * @param type      文章封面的引用类型,0:内容引用,1:封面引用
@@ -266,6 +269,7 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
 
     /**
      * 提取文章内容中的图片信息
+     *
      * @param content
      * @return
      */
@@ -288,6 +292,7 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
 
     /**
      * 保存或修改文章
+     *
      * @param wmNews
      */
     private void saveOrUpdateWmNews(WmNews wmNews) {
@@ -307,6 +312,51 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
             wmNewsMaterialMapper.delete(Wrappers.<WmNewsMaterial>lambdaQuery().eq(WmNewsMaterial::getNewsId, wmNews.getId()));
             updateById(wmNews);
         }
+    }
+
+    @Autowired
+    private KafkaTemplate<String, String> kafkaTemplate;
+
+
+    /**
+     * 文章上下架
+     *
+     * @param dto
+     * @return
+     */
+    @Override
+    public ResponseResult downOrUp(WmNewsDto dto) {
+        //1.检查参数
+        if (dto.getId() == null) {
+            return ResponseResult.errorResult(AppHttpCodeEnum.PARAM_INVALID);
+        }
+
+        //2.查询文章
+        WmNews wmNews = getById(dto.getId());
+        if (wmNews == null) {
+            return ResponseResult.errorResult(AppHttpCodeEnum.DATA_NOT_EXIST, "文章不存在");
+        }
+
+        //3.判断文章是否已发布
+        if (!wmNews.getStatus().equals(WmNews.Status.PUBLISHED.getCode())) {
+            return ResponseResult.errorResult(AppHttpCodeEnum.PARAM_INVALID, "当前文章不是发布状态，不能上下架");
+        }
+
+        //4.修改文章enable
+        if (dto.getEnable() != null && dto.getEnable() > -1 && dto.getEnable() < 2) {
+            update(Wrappers.<WmNews>lambdaUpdate().set(WmNews::getEnable, dto.getEnable())
+                    .eq(WmNews::getId, wmNews.getId()));
+
+            if (wmNews.getArticleId() != null){
+                //发送消息，通知article修改文章配置
+                Map<String, Object> map = new HashMap<>();
+                map.put("articleId", wmNews.getArticleId());
+                map.put("enable", dto.getEnable());
+                kafkaTemplate.send(WmNewsMessageConstants.WM_NEWS_UP_OR_DOWN_TOPIC, JSON.toJSONString(map));
+            }
+
+        }
+        return ResponseResult.okResult(AppHttpCodeEnum.SUCCESS);
     }
 
 
