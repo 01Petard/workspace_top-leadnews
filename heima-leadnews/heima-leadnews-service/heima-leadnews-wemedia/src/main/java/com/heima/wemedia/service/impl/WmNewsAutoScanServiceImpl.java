@@ -65,24 +65,23 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
             Map<String, Object> textAndImages = handleTextAndImages(wmNews);
 
             //自管理的敏感词过滤
-            boolean isSensitive = handleSensitiveScan(textAndImages.get("content").toString(), wmNews);
-            if (!isSensitive) {
-                return;
-            } else {
+            boolean isSelfWordSensitive = handleSensitiveScan(textAndImages.get("content").toString(), wmNews);
+            if (isSelfWordSensitive) {
                 log.info("文字内容存在敏感词，审核不通过，用户id：{}", wmNews.getUserId());
+                return;
             }
 
 
             //2.调用阿里云接口审核文章内容
-            boolean isTextScan = handleTextScan(textAndImages.get("content").toString(), wmNews);
-            if (!isTextScan) {
+            boolean isContentSentive = handleTextScan(textAndImages.get("content").toString(), wmNews);
+            if (isContentSentive) {
                 log.info("文字内容存在违规内容，审核不通过，用户id：{}", wmNews.getUserId());
                 return;
             }
 
             //3.调用阿里云接口审核文章图片
-            boolean isImagesScan = handleImagesScan((List<String>) textAndImages.get("images"), wmNews);
-            if (!isImagesScan) {
+            boolean isImagesSentive = handleImagesScan((List<String>) textAndImages.get("images"), wmNews);
+            if (isImagesSentive) {
                 log.info("图片画面存在违规内容，审核不通过，用户id：{}", wmNews.getUserId());
                 return;
             }
@@ -196,10 +195,10 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
      * @return
      */
     private boolean handleImagesScan(List<String> images, WmNews wmNews) {
-        boolean flag = true;
+        boolean flag = false;
 
         if (images == null || images.isEmpty()) {
-            return true;
+            return false;
         }
 
         //图片去重
@@ -225,10 +224,10 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
                 String resultOCR = tess4jClient.doOCR(bufferedImage);
                 //过滤文字
                 boolean isSensitive = handleSensitiveScan(resultOCR, wmNews);
-                if (!isSensitive) {
+                if (isSensitive) {
                     //图片文字不通过审核，直接返回false
                     log.info("图片文字存在敏感词，审核不通过，用户id：{}", wmNews.getUserId());
-                    return false;
+                    return true;
                 }
             }
         } catch (IOException | TesseractException e) {
@@ -239,11 +238,11 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
         //审核图片
         for (Map<String, String> autoScanMap : autoScanMaps) {
             if (autoScanMap.get("suggestion").equals(WemediaConstants.WM_AUDIT_BY_BLOCK)) {
-                flag = false;
+                flag = true;
                 updateWmNews(wmNews, (short) 2, "当前文章中存在违规内容！");
             }
             if (autoScanMap.get("suggestion").equals(WemediaConstants.WM_AUDIT_BY_REVIEW)) {
-                flag = false;
+                flag = true;
                 updateWmNews(wmNews, (short) 3, "当前文章中存在不确定元素，需要人工审核！");
             }
         }
@@ -265,10 +264,10 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
      */
     private boolean handleTextScan(String content, WmNews wmNews) {
 
-        boolean flag = true;
+        boolean flag = false;
 
         if (content.isEmpty()) {
-            return true;
+            return false;
         }
 
         try {
@@ -276,13 +275,14 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
             if (map != null) {
                 if (map.get("suggestion").equals(WemediaConstants.WM_AUDIT_BY_BLOCK)) {
                     //审核不通过，失败
-                    flag = false;
+                    flag = true;
                     updateWmNews(wmNews, (short) 2, "当前文章中存在违规内容！");
-                }
-                if (map.get("suggestion").equals(WemediaConstants.WM_AUDIT_BY_REVIEW)) {
+                } else if (map.get("suggestion").equals(WemediaConstants.WM_AUDIT_BY_REVIEW)) {
                     //审核不确定，人工审核
-                    flag = false;
+                    flag = true;
                     updateWmNews(wmNews, (short) 3, "当前文章中存在不确定元素，需要人工审核！");
+                } else {
+                    log.error("未知审核结果：{}", map.get("suggestion"));
                 }
             }
         } catch (Exception e) {

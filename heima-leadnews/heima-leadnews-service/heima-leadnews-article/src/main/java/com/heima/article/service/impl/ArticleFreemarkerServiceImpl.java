@@ -6,14 +6,17 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.heima.article.mapper.ApArticleContentMapper;
 import com.heima.article.service.ApArticleService;
 import com.heima.article.service.ArticleFreemarkerService;
+import com.heima.common.constants.ArticleConstants;
 import com.heima.file.service.FileStorageService;
 import com.heima.model.article.pojos.ApArticle;
+import com.heima.model.search.vos.SearchArticleVo;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -76,7 +79,37 @@ public class ArticleFreemarkerServiceImpl implements ArticleFreemarkerService {
             //4.4 修改ap_article表，保存static_url字段
             apArticleService.update(Wrappers.<ApArticle>lambdaUpdate().eq(ApArticle::getId, apArticle.getId())
                     .set(ApArticle::getStaticUrl, path));
+
+            //发送消息，创建es索引
+            createArticleESIndex(apArticle, content, path);
+
         }
+    }
+
+    @Autowired
+    private KafkaTemplate<String, String> kafkaTemplate;
+
+    /**
+     * 将文章上传到minio中，向kafka发送消息，创建es索引
+     *
+     * @param apArticle
+     * @param content
+     * @param path
+     */
+    private void createArticleESIndex(ApArticle apArticle, String content, String path) {
+        SearchArticleVo vo = new SearchArticleVo();
+        BeanUtils.copyProperties(apArticle, vo);
+        vo.setContent(content);
+        vo.setStaticUrl(path);
+
+        log.info("有新文章发布，articleId：{}", vo.getId());
+        try {
+            kafkaTemplate.send(ArticleConstants.ARTICLE_ES_SYNC_TOPIC, JSON.toJSONString(vo));
+            log.info("发送kafka消息成功!");
+        } catch (Exception e) {
+            log.info("发送kafka消息失败!");
+        }
+
     }
 
 }
