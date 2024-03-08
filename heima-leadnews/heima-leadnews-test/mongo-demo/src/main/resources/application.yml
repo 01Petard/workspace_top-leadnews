@@ -1,0 +1,15 @@
+server:
+  port: 9998
+spring:
+  data:
+    mongodb:
+      host: 192.168.179.129
+      port: 27017
+      database: leadnews-history
+
+minio:
+  rootUser: minio
+  rootPassword: 12345678
+  bucket: leadnews
+  endpoint: http://192.168.179.129:9100
+  readPath: http://192.168.179.129:9100

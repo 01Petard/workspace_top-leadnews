@@ -45,6 +45,17 @@ public class AuthorizeFilter implements Ordered, GlobalFilter {
                 response.setStatusCode(HttpStatus.UNAUTHORIZED);
                 return response.setComplete();
             }
+            /*
+             * 获取app端用户的id
+             */
+            //获取用户的信息，存入header
+            Object app_userId = claimsBody.get("id");
+            //存储header中
+            ServerHttpRequest serverHttpRequest = request.mutate().headers(httpHeaders -> {
+                httpHeaders.add("app_userId", app_userId + "");
+            }).build();
+            //重置请求
+            exchange.mutate().request(serverHttpRequest);
         } catch (Exception e) {
             //解析失败
             log.error("token解析失败：", e);

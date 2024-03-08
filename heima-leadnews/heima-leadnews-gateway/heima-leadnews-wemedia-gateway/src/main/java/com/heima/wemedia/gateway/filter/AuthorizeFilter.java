@@ -43,7 +43,7 @@ public class AuthorizeFilter implements Ordered, GlobalFilter {
                 response.setStatusCode(HttpStatus.UNAUTHORIZED);
                 return response.setComplete();
             }
-            /**
+            /*
              * 获取自媒体用户的id，用于自媒体素材管理时获取用户id
              */
             //获取自媒体用户的信息，存入header
